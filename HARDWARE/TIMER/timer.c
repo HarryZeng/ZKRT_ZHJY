@@ -14,16 +14,23 @@
 ////////////////////////////////////////////////////////////////////////////////// 	 
 
 
-extern vu16 USART3_RX_STA;
-
+extern uint32_t TimeFlag;
+extern uint32_t TimeCounter;
 //定时器7中断服务程序		    
+uint32_t TIM7_Counter=0;
 void TIM7_IRQHandler(void)
 { 	
 	if (TIM_GetITStatus(TIM7, TIM_IT_Update) != RESET)//是更新中断
 	{	 			   
-		USART3_RX_STA|=1<<15;	//标记接收完成
+		//USART3_RX_STA|=1<<15;	//标记接收完成
+		TIM7_Counter++;
+		if(TIM7_Counter>TimeCounter)
+		{
+			TIM7_Counter = 0;
+			TimeFlag = 1;
+		}
 		TIM_ClearITPendingBit(TIM7, TIM_IT_Update  );  //清除TIM7更新中断标志    
-		TIM_Cmd(TIM7, DISABLE);  //关闭TIM7 
+		//TIM_Cmd(TIM7, DISABLE);  //关闭TIM7 
 	}	    
 }
  
@@ -49,10 +56,11 @@ void TIM7_Int_Init(u16 arr,u16 psc)
 
 	 	  
 	NVIC_InitStructure.NVIC_IRQChannel = TIM7_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority=0 ;//抢占优先级0
-	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 1;		//子优先级1
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority=20 ;//抢占优先级0
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 20;		//子优先级1
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;			//IRQ通道使能
 	NVIC_Init(&NVIC_InitStructure);	//根据指定的参数初始化VIC寄存器
 	
+	TIM_Cmd(TIM7, ENABLE);  //开启
 }
 	 

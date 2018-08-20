@@ -13,7 +13,6 @@ uint16_t RS232_RX_CNT=0;
 u8 Meteor_Status=0;
 u8 BufferNumber0=0;
 u8 BufferNumber1=1;
-
 u8 BufferFinishNumber=0;
 u8 BufferWorkNumber=0;
 void USART2_IRQHandler(void)
@@ -24,8 +23,8 @@ void USART2_IRQHandler(void)
 			USART_ClearITPendingBit(USART2, USART_IT_RXNE);
 			res = USART_ReceiveData(USART2);//;读取接收到的数据USART2->DR
 			//fifo_in(&MeteorFIFOBuffer,&res,1);
-			if(Meteor_Status==0)
-			{
+//			if(Meteor_Status==0)
+//			{
 				if(BufferWorkNumber==BufferNumber1)
 				{
 					RS232_RX_BUF[BufferNumber1][RS232_RX_CNT] = res;
@@ -35,15 +34,16 @@ void USART2_IRQHandler(void)
 					RS232_RX_BUF[BufferNumber0][RS232_RX_CNT] = res;
 				}
 				
-				
 				RS232_RX_CNT++;
-			}
+			//}
 		} 
 		if(USART_GetITStatus(USART2, USART_IT_IDLE) != RESET)
 		{
 			USART_ClearITPendingBit(USART2, USART_IT_IDLE);
 			USART2->DR;
 			Meteor_Status = 1;
+			MeteorBufCounter = RS232_RX_CNT;
+			RS232_RX_CNT = 0;
 			/*记录当前缓存区*/
 			BufferFinishNumber = BufferWorkNumber;
 			if(BufferWorkNumber==BufferNumber1)

@@ -5,13 +5,18 @@
 #include "Meteorological.h"
 
 #define RS485_USART  UART4
-
+extern uint8_t ReadyFlag;
 #if RS485_USART_RX   		//如果使能了接收   	  
 //接收缓存区 	
-u8 RS485_RX_BUF[2000];  	//接收缓冲,最大2000个字节.
+u8 RS485_RX_BUF[2][2000];  	//接收缓冲,最大2000个字节.
 //接收到的数据长度
 uint16_t RS485_RX_CNT=0;   
 
+u8 Rs485Meteor_Status=0;
+u8 Rs485BufferNumber0=0;
+u8 Rs485BufferNumber1=1;
+u8 Rs485BufferFinishNumber=0;
+u8 Rs485BufferWorkNumber=0;
 void UART4_IRQHandler(void)
 {
 	u8 res;	    
@@ -19,9 +24,32 @@ void UART4_IRQHandler(void)
 	{	 
 		USART_ClearITPendingBit(RS485_USART, USART_IT_RXNE);
 	  res =USART_ReceiveData(RS485_USART);//;读取接收到的数据USART2->DR
-		fifo_in(&NuclearFIFOBuffer,&res,1);
+		if(ReadyFlag)
+			fifo_in(&NuclearFIFOBuffer,&res,1);
+
+		if(Rs485BufferWorkNumber==Rs485BufferNumber1)
+		{
+			RS485_RX_BUF[Rs485BufferNumber1][RS485_RX_CNT] = res;
+		}
+		else 
+		{
+			RS485_RX_BUF[Rs485BufferNumber0][RS485_RX_CNT] = res;
+		}
 		RS485_RX_CNT++;
-	}  											 
+	}
+	
+	if(USART_GetITStatus(RS485_USART, USART_IT_IDLE) != RESET)
+	{
+		USART_ClearITPendingBit(RS485_USART, USART_IT_IDLE);
+		RS485_USART->DR;
+		Rs485Meteor_Status = 1;
+		/*记录当前缓存区*/
+		Rs485BufferFinishNumber = Rs485BufferWorkNumber;
+		if(Rs485BufferWorkNumber==Rs485BufferNumber1)
+			 Rs485BufferWorkNumber = Rs485BufferNumber0;
+		else 
+			 Rs485BufferWorkNumber = Rs485BufferNumber1;
+	}	
 } 
 #endif										 
 //初始化IO 串口2
@@ -72,7 +100,7 @@ void RS485_Init(u32 bound)
 	
 #if RS485_USART_RX	
 	USART_ITConfig(RS485_USART, USART_IT_RXNE, ENABLE);//开启接受中断
-
+	USART_ITConfig(RS485_USART, USART_IT_IDLE,ENABLE);	//开启空闲中断
 	//Usart2 NVIC 配置
   NVIC_InitStructure.NVIC_IRQChannel = UART4_IRQn;
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority=10;//抢占优先级10
@@ -100,41 +128,41 @@ void RS485_Send_Data(u8 *buf,u8 len)
     USART_SendData(RS485_USART,buf[t]); //发送数据
 	}
 	while(USART_GetFlagStatus(RS485_USART,USART_FLAG_TC)==RESET); //等待发送结束		
-	RS485_RX_CNT=0;	
+	//RS485_RX_CNT=0;	
 	RS485_TX_EN=0;				//设置为接收模式	
 }
-//RS485查询接收到的数据
-//buf:接收缓存首地址
-//len:读到的数据长度
-void RS485_Receive_Data(u8 *buf,uint16_t *len)
-{
-	u8 rxlen=0;
-	u8 i=0;
-	*len=0;				//默认为0
-	delay_ms(10);		//等待10ms,连续超过10ms没有接收到一个数据,则认为接收结束
-	rxlen = RS485_RX_CNT;
-	if(rxlen==RS485_RX_CNT&&rxlen)//接收到了数据,且接收完成了
-	{
-		for(i=0;i<rxlen;i++)
-		{
-			buf[i]=RS485_RX_BUF[i];	
-		}		
-		*len=RS485_RX_CNT;	//记录本次数据长度
-		RS485_RX_CNT=0;		//清零
-	}
-}
+////RS485查询接收到的数据
+////buf:接收缓存首地址
+////len:读到的数据长度
+//void RS485_Receive_Data(u8 *buf,uint16_t *len)
+//{
+//	u8 rxlen=0;
+//	u8 i=0;
+//	*len=0;				//默认为0
+//	delay_ms(10);		//等待10ms,连续超过10ms没有接收到一个数据,则认为接收结束
+//	rxlen = RS485_RX_CNT;
+//	if(rxlen==RS485_RX_CNT&&rxlen)//接收到了数据,且接收完成了
+//	{
+//		for(i=0;i<rxlen;i++)
+//		{
+//			buf[i]=RS485_RX_BUF[i];	
+//		}		
+//		*len=RS485_RX_CNT;	//记录本次数据长度
+//		RS485_RX_CNT=0;		//清零
+//	}
+//}
 
-//RS485查询接收到的数据长度
-void RS485_Receive_BufferLen(uint16_t *len)
-{
-	u8 rxlen=0;
-	*len=0;				//默认为0
-	delay_ms(26);		//等待10ms,连续超过10ms没有接收到一个数据,则认为接收结束
-	rxlen=RS485_RX_CNT;
-	if(rxlen==RS485_RX_CNT&&rxlen)//接收到了数据,且接收完成了
-	{
-		*len=RS485_RX_CNT;	//记录本次数据长度
-		RS485_RX_CNT=0;		//清零
-	}
-}
+////RS485查询接收到的数据长度
+//void RS485_Receive_BufferLen(uint16_t *len)
+//{
+//	u8 rxlen=0;
+//	*len=0;				//默认为0
+//	delay_ms(26);		//等待10ms,连续超过10ms没有接收到一个数据,则认为接收结束
+//	rxlen=RS485_RX_CNT;
+//	if(rxlen==RS485_RX_CNT&&rxlen)//接收到了数据,且接收完成了
+//	{
+//		*len=RS485_RX_CNT;	//记录本次数据长度
+//		RS485_RX_CNT=0;		//清零
+//	}
+//}
 

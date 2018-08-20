@@ -35,12 +35,17 @@ void PutData2TXT(u8 *databuffer,uint16_t length);
 
 
 uint8_t ReadyFlag=0;
-
+uint32_t TimeFlag=0;
+uint32_t TimeCounter=1000;
+uint16_t BatteryAllowance=0;
+u8 ReturnFlag=0;
 
 u8 USART1_TX_BUF[USART3_MAX_RECV_LEN]; 					//串口1,发送缓存区
 nmea_msg gpsx; 											//GPS信息
 __align(4) u8 dtbuf[50];   								//打印缓存器
 const u8*fixmode_tbl[4]={"Fail","Fail"," 2D "," 3D "};	//fix mode字符串 
+
+extern u16 USART6_RX_STA;
 
 /*
 1-风向
@@ -53,9 +58,12 @@ const u8*fixmode_tbl[4]={"Fail","Fail"," 2D "," 3D "};	//fix mode字符串
 8-露点温度
 */
 u8 mem_perused=0;
+u8 Usart1rxlen;
+u8 Usart6rxlen;
+u8 ComaBackCommand[]={0x5A,0x04,0xFF,0xFF,0x0D,0x0A};
 int main(void)
 {
-	u16 i=0,rxlen;
+	u16 i=0;
 	u16 lenx;
 	u32 TIME_Check=0;
  	u32 total,free;
@@ -67,15 +75,17 @@ int main(void)
 	u8 GPS_Save_File=0;
 	FRESULT res_sd;
 	
+	
 	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);//设置系统中断优先级分组2
 	delay_init(168);  //初始化延时函数
+	API_Uart6_init(115200);
 	uart_init(115200);		//初始化串口波特率为115200
 	LED_Init();					//初始化LED 
-	usmart_dev.init(84);		//初始化USMART
- 	KEY_Init();					//按键初始化 
+	//usmart_dev.init(84);		//初始化USMART
+ 	//KEY_Init();					//按键初始化 
 	RS232_Init(4800);				//初始化232
 	RS485_Init(115200);				//初始化485
-
+	TIM7_Int_Init(1000,84-1);
 	my_mem_init(SRAMIN);		//初始化内部内存池 
 	my_mem_init(SRAMCCM);		//初始化CCM内存池
 	
@@ -109,11 +119,11 @@ int main(void)
 	res_sd = f_lseek(fp,fp->fsize);  
 	
 	LED0 = 0;
-	fifo_alloc(&MeteorFIFOBuffer,2*1024);
+	//fifo_alloc(&MeteorFIFOBuffer,2*1024);
 	fifo_alloc(&NuclearFIFOBuffer,2*1024);
 	mem_perused = my_mem_perused(SRAMIN);
 	
-	delay_ms(3000);
+	delay_ms(1000);
 	
 	while(1)
 	{
@@ -129,6 +139,7 @@ int main(void)
 				StartMea();
 				delay_ms(10);
 				ReadyFlag = 1;
+				RS485_RX_CNT = 0;
 			}
 			delay_ms(500);
 			LED0 = 1;
@@ -137,38 +148,75 @@ int main(void)
 		/*****************核辐射设备数据---读取*******************/
 		else if(ReadyFlag==1)
 		{
-			delay_ms(20);
-			TIME_Check++;
-			if(TIME_Check>=55)
+			/*************************上位机*************************/
+			if(USART_RX_STA&0x8000)
 			{
-				TIME_Check =0;
-				LED0=1;
-
-				/*读取气象模块数据*/
-				if(Meteor_Status)
+				Usart1rxlen=USART_RX_STA&0x3fff;	//得到此次接收到的数据长度
+				if(Usart1rxlen==4)
 				{
-					LED0=1;
-					MeteorBufCounter = RS232_RX_CNT;
-					Meteor_Status = 0;
-					RS232_RX_CNT = 0;
+					if(USART_RX_BUF[1]==0x01)  //设置电压
+					{
+
+					}
+					if(USART_RX_BUF[1]==0x02)  //设置时间
+					{
+						TimeCounter = (USART_RX_BUF[3]<<8) + USART_RX_BUF[2];
+						if(TimeCounter>9999) TimeCounter = 9999;
+						if(TimeCounter<=0) TimeCounter = 0;
+					}
+					if(USART_RX_BUF[1]==0x04)  //返航指令
+					{
+							APIUsart6_Send_Data(ComaBackCommand,6);
+					}
 				}
+				USART_RX_STA=0;//状态寄存器清空
+			}
+			/**************API**************/
+			if(USART6_RX_STA&0x8000)
+			{
+				Usart6rxlen=USART6_RX_STA&0x3fff;	//得到此次接收到的数据长度
+				if(Usart6rxlen==6)
+				{
+					if(USART6_RX_BUF[1]==0x03)  //读取到电量
+					{
+							BatteryAllowance = (USART6_RX_BUF[5]<<24) + (USART6_RX_BUF[4]<<16)+(USART6_RX_BUF[3]<<8)+USART6_RX_BUF[2];
+					}
+				}
+				if(Usart6rxlen==4)
+				{
+					if(USART6_RX_BUF[1]==0x14)  //回复返航成功
+					{
+							ReturnFlag = 1;
+					}
+				}
+				USART6_RX_STA=0;//状态寄存器清空
+			}
+			/****************核辐射气象****************/
+			if(TimeFlag)
+			{
+				TimeFlag =0;
+				LED0=1;
+				//printf("USART1 IS OK\r\n");
 				/*等待气象模块读取到数据后，再一起转发出去*/
 				PutData2TXT(RS232_RX_BUF[BufferFinishNumber],MeteorBufCounter);
 				for(i=0;i<MeteorBufCounter;i++)
 				{
 						printf("%c",RS232_RX_BUF[BufferFinishNumber][i]);
-						//RS232_RX_BUF[i] = 0;
 				}
-				
+				printf("\r\n");
 				/*读取核辐射模块数据*/
 				ReadMeteorVal();
 				/*转发核辐射数据*/
 				delay_ms(20);
 				NuclearGetData(ReceiveBuf,&NuclearBufCounter);
 				PutData2TXT(ReceiveBuf,NuclearBufCounter);
+				printf("$HFSSJ,");
 				for(i=0;i<NuclearBufCounter;i++)
-					printf("%c",ReceiveBuf[i]);	
-				//printf("\r\n");
+					printf("%c",ReceiveBuf[i]);
+				printf("\r\n");
+				/*发送飞机状态*/
+				printf("$WRJSJ,Battery:%d,ReturnFlag:%d",BatteryAllowance,ReturnFlag);
+				
 			}
 			else
 			{

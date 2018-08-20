@@ -22,9 +22,9 @@
 #include "fifo.h"
 #include "led.h"
 
+u8      ReceiveBuf[2000];
 fifo 		MeteorFIFOBuffer;
 fifo 		NuclearFIFOBuffer;
-u8      ReceiveBuf[2000];
 u16 		MeteorBufCounter;
 u16 		NuclearBufCounter;
 
@@ -73,27 +73,42 @@ char* itoa(int num,char*str,int radix)
   * @param  None
   * @retval None
   */
+
 bool CheckCommunication(void)
 {
 	uint8_t MeteorCheckData[5];
 	uint16_t Len=5;
 	uint8_t SendCmd[] = "Q\n";
-	
+	u8 i=0;
 	char CheckReceiveFlag[]="OK Q\n";
 	char ReceiveData[5];
-	
 	
 	LED0 = 0;
 	RS485_Send_Data(SendCmd,2);
 	delay_ms(10);
-	if(RS485_RX_CNT>4)
+	if(Rs485Meteor_Status)
 	{
-		fifo_out(&NuclearFIFOBuffer,MeteorCheckData,RS485_RX_CNT);
+		Rs485Meteor_Status = 0;
+		for(i=0;i<5;i++)
+			MeteorCheckData[i] = RS485_RX_BUF[Rs485BufferFinishNumber][i];
 		RS485_RX_CNT = 0;
 	}
 	if(strncmp(CheckReceiveFlag,MeteorCheckData,5))
 		return false;
 	return true;
+}
+
+/**
+  * @brief  Meteor Start to measure
+  * @param  None
+  * @retval None
+  */
+bool SetVoltage(u16 VoltageValue)
+{
+		uint8_t Cmd[]="K\n";
+	  
+		RS485_Send_Data(Cmd, 2);
+
 }
 
 /**
@@ -124,11 +139,12 @@ bool StopMea(void)
 	char ReceiveData[5];
 	
 	RS485_Send_Data(SendCmd,2);
-	
 	delay_ms(10);
-
-	RS485_Receive_Data(MeteorStopkData,&Len);
-
+	if(RS485_RX_CNT>4)
+	{
+		fifo_out(&NuclearFIFOBuffer,MeteorStopkData,RS485_RX_CNT);
+		RS485_RX_CNT = 0;
+	}
 	if(strncmp(CheckReceiveFlag,MeteorStopkData,5))
 		return false;
 	return true;
@@ -145,7 +161,7 @@ bool ReadMeteorVal (void)
 	uint8_t SendCmd[] = "E\n";
 		
 	RS485_Send_Data(SendCmd,2);
-	
+	delay_ms(10);
 	return true;
 	
 }

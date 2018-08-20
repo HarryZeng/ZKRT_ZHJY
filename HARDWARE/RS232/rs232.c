@@ -10,20 +10,27 @@
 u8 RS232_RX_BUF[2000];  	//接收缓冲,最大2000个字节.
 //接收到的数据长度
 uint16_t RS232_RX_CNT=0;   
+u8 Meteor_Status=0;
 void USART2_IRQHandler(void)
 {
 	u8 res;	    
-	if(USART_GetITStatus(USART2, USART_IT_RXNE) != RESET)//接收到数据
-	{	 	
-	  res = USART_ReceiveData(USART2);//;读取接收到的数据USART2->DR
-		fifo_in(&MeteorFIFOBuffer,&res,1);
-		//MeteorBufCounter++;
-		if(RS232_RX_CNT<2000)
-		{
-			RS232_RX_BUF[RS232_RX_CNT]=res;		//记录接收到的值
-			RS232_RX_CNT++;						//接收数据增加1 
+		if(USART_GetITStatus(USART2, USART_IT_RXNE) != RESET)//接收到数据
+		{	 	
+			USART_ClearITPendingBit(USART2, USART_IT_RXNE);
+			res = USART_ReceiveData(USART2);//;读取接收到的数据USART2->DR
+			//fifo_in(&MeteorFIFOBuffer,&res,1);
+			if(Meteor_Status==0)
+			{
+				RS232_RX_BUF[RS232_RX_CNT] = res;
+				RS232_RX_CNT++;
+			}
 		} 
-	}  											 
+		if(USART_GetITStatus(USART2, USART_IT_IDLE) != RESET)
+		{
+			USART_ClearITPendingBit(USART2, USART_IT_IDLE);
+			USART2->DR;
+			Meteor_Status = 1;
+		}		
 }
 
 #endif										 
@@ -66,7 +73,8 @@ void RS232_Init(u32 bound)
 	
 #if RS232_RX	
 	USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);//开启接受中断
-
+	USART_ITConfig(USART2,USART_IT_IDLE,ENABLE);	//开启空闲中断
+	
 	//Usart2 NVIC 配置
   NVIC_InitStructure.NVIC_IRQChannel = USART2_IRQn;
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority=3;//抢占优先级3
@@ -105,7 +113,7 @@ void RS232_Receive_BufferLen(uint16_t *len)
 {
 	u8 rxlen=0;
 	*len=0;				//默认为0
-	delay_ms(10);		//等待10ms,连续超过10ms没有接收到一个数据,则认为接收结束
+	//delay_ms(10);		//等待10ms,连续超过10ms没有接收到一个数据,则认为接收结束
 	rxlen=RS232_RX_CNT;
 	if(rxlen==RS232_RX_CNT&&rxlen)//接收到了数据,且接收完成了
 	{

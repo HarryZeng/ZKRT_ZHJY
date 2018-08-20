@@ -33,8 +33,6 @@ void PutTXTdata2TFCardTest(void);
 
 void PutData2TXT(u8 *databuffer,uint16_t length);
 
-
-uint32_t SyncTimeCounter=0;
 #if (WORK_MODE==0)
 uint8_t WorkInFlag=0;
 uint8_t ReadyFlag=1;
@@ -150,13 +148,17 @@ int main(void)
 			if(TIME_Check>=55)
 			{
 				TIME_Check =0;
-				ReadMeteorVal();
 				LED0=1;
+				
+				/*读取气象模块数据*/
+
+				/*读取核辐射模块数据*/
+				ReadMeteorVal();
 				delay_ms(20);
-				NuclearGetData(ReceiveBuf,&NuclearBufCounter);
-				PutData2TXT(ReceiveBuf,NuclearBufCounter);
+				NuclearGetData(ReceiveBuf[1],&NuclearBufCounter);
+				PutData2TXT(ReceiveBuf[1],NuclearBufCounter);
 				for(i=0;i<NuclearBufCounter;i++)
-					printf("%c",ReceiveBuf[i]);	
+					printf("%c",ReceiveBuf[1][i]);	
 			}
 			else
 			{
@@ -164,41 +166,21 @@ int main(void)
 			}			
 		}
 		/*****************气象设备数据----读取******************/
-		else if(WorkInFlag==0)
-		{
-			RS232_Receive_BufferLen(&MeteorBufCounter);
-			if(MeteorBufCounter)//接收到有数据
+		if(Meteor_Status)
+		{			
+			//MeteorBufCounter = RS232_RX_CNT;
+			//fifo_out(&MeteorFIFOBuffer,ReceiveBuf[0],MeteorBufCounter);
+			LED0=1;
+			PutData2TXT(RS232_RX_BUF,RS232_RX_CNT);
+			//sumCounter = sumCounter + MeteorBufCounter;
+			for(i=0;i<RS232_RX_CNT;i++)
 			{
-				fifo_out(&MeteorFIFOBuffer,ReceiveBuf,MeteorBufCounter);
-				SyncTimeCounter = 0;
-				LED0=1;
-				PutData2TXT(ReceiveBuf,MeteorBufCounter);
-				sumCounter = sumCounter + MeteorBufCounter;
-				for(i=0;i<MeteorBufCounter;i++)
-					printf("%c",ReceiveBuf[i]);
-				MeteorBufCounter = 0;
+					printf("%c",RS232_RX_BUF[i]);
+					RS232_RX_BUF[i] = 0;
 			}
-			else
-			{
-				LED0=0;
-			}
+			Meteor_Status = 0;
+			RS232_RX_CNT = 0;
 		}
-		/*******************GPS数据**********************/
-//		if(USART3_RX_STA&0X8000)		//接收到一次数据了
-//		{
-//			LED0=0;
-//			rxlen=USART3_RX_STA&0X7FFF;	//得到数据长度
-//			for(i=0;i<rxlen;i++)USART1_TX_BUF[i]=USART3_RX_BUF[i];	   
-// 			USART3_RX_STA=0;		   	//启动下一次接收
-//			USART1_TX_BUF[i]=0;			//自动添加结束符
-//			//GPS_Analysis(&gpsx,(u8*)USART1_TX_BUF);//分析字符串
-//			//Gps_Msg_Show();				//显示信息	
-//			GPS_Save_File = 1;
-//			PutData2TXT(USART3_RX_BUF,rxlen);
-//			if(upload)printf("\r\n%s\r\n",USART1_TX_BUF);//发送接收到的数据到串口1
-// 		}
-//			else
-//				LED0=1;
 	} 
 }
 

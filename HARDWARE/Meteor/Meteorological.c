@@ -24,7 +24,7 @@
 
 fifo 		MeteorFIFOBuffer;
 fifo 		NuclearFIFOBuffer;
-u8      ReceiveBuf[2000];
+u8      ReceiveBuf[2][2000];
 u16 		MeteorBufCounter;
 u16 		NuclearBufCounter;
 

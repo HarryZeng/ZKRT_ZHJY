@@ -7,10 +7,15 @@
 
 #if RS232_RX   		//如果使能了接收   	  
 //接收缓存区 	
-u8 RS232_RX_BUF[2000];  	//接收缓冲,最大2000个字节.
+u8 RS232_RX_BUF[2][2000];  	//接收缓冲,最大2000个字节.
 //接收到的数据长度
 uint16_t RS232_RX_CNT=0;   
 u8 Meteor_Status=0;
+u8 BufferNumber0=0;
+u8 BufferNumber1=1;
+
+u8 BufferFinishNumber=0;
+u8 BufferWorkNumber=0;
 void USART2_IRQHandler(void)
 {
 	u8 res;	    
@@ -21,7 +26,16 @@ void USART2_IRQHandler(void)
 			//fifo_in(&MeteorFIFOBuffer,&res,1);
 			if(Meteor_Status==0)
 			{
-				RS232_RX_BUF[RS232_RX_CNT] = res;
+				if(BufferWorkNumber==BufferNumber1)
+				{
+					RS232_RX_BUF[BufferNumber1][RS232_RX_CNT] = res;
+				}
+				else 
+				{
+					RS232_RX_BUF[BufferNumber0][RS232_RX_CNT] = res;
+				}
+				
+				
 				RS232_RX_CNT++;
 			}
 		} 
@@ -30,6 +44,12 @@ void USART2_IRQHandler(void)
 			USART_ClearITPendingBit(USART2, USART_IT_IDLE);
 			USART2->DR;
 			Meteor_Status = 1;
+			/*记录当前缓存区*/
+			BufferFinishNumber = BufferWorkNumber;
+			if(BufferWorkNumber==BufferNumber1)
+				 BufferWorkNumber = BufferNumber0;
+			else 
+				 BufferWorkNumber = BufferNumber1;
 		}		
 }
 
@@ -87,39 +107,39 @@ void RS232_Init(u32 bound)
 	RS232_TX_EN=0;				//默认为接收模式	
 }
 
-//RS232查询接收到的数据
-//buf:接收缓存首地址
-//len:读到的数据长度
-void RS232_Receive_Data(u8 *buf,uint16_t *len)
-{
-	u8 rxlen=RS232_RX_CNT;
-	u8 i=0;
-	*len=0;				//默认为0
-	//delay_ms(10);		//等待10ms,连续超过10ms没有接收到一个数据,则认为接收结束
-	if(rxlen==RS232_RX_CNT&&rxlen)//接收到了数据,且接收完成了
-	{
-		for(i=0;i<rxlen;i++)
-		{
-			buf[i]=RS232_RX_BUF[i];	
-		}		
-		*len=RS232_RX_CNT;	//记录本次数据长度
-		RS232_RX_CNT=0;		//清零
-	}
-}
+////RS232查询接收到的数据
+////buf:接收缓存首地址
+////len:读到的数据长度
+//void RS232_Receive_Data(u8 *buf,uint16_t *len)
+//{
+//	u8 rxlen=RS232_RX_CNT;
+//	u8 i=0;
+//	*len=0;				//默认为0
+//	//delay_ms(10);		//等待10ms,连续超过10ms没有接收到一个数据,则认为接收结束
+//	if(rxlen==RS232_RX_CNT&&rxlen)//接收到了数据,且接收完成了
+//	{
+//		for(i=0;i<rxlen;i++)
+//		{
+//			buf[i]=RS232_RX_BUF[i];	
+//		}		
+//		*len=RS232_RX_CNT;	//记录本次数据长度
+//		RS232_RX_CNT=0;		//清零
+//	}
+//}
 
-//RS232查询接收到的数据长度
+////RS232查询接收到的数据长度
 
-void RS232_Receive_BufferLen(uint16_t *len)
-{
-	u8 rxlen=0;
-	*len=0;				//默认为0
-	//delay_ms(10);		//等待10ms,连续超过10ms没有接收到一个数据,则认为接收结束
-	rxlen=RS232_RX_CNT;
-	if(rxlen==RS232_RX_CNT&&rxlen)//接收到了数据,且接收完成了
-	{
-		*len=RS232_RX_CNT;	//记录本次数据长度
-		RS232_RX_CNT=0;		//清零
-	}
-}
+//void RS232_Receive_BufferLen(uint16_t *len)
+//{
+//	u8 rxlen=0;
+//	*len=0;				//默认为0
+//	//delay_ms(10);		//等待10ms,连续超过10ms没有接收到一个数据,则认为接收结束
+//	rxlen=RS232_RX_CNT;
+//	if(rxlen==RS232_RX_CNT&&rxlen)//接收到了数据,且接收完成了
+//	{
+//		*len=RS232_RX_CNT;	//记录本次数据长度
+//		RS232_RX_CNT=0;		//清零
+//	}
+//}
 
 

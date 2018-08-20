@@ -20,8 +20,7 @@
 #include "rs232.h"
 
  
-#define  WORK_MODE  1//0->气象设备，1->核辐射设备
- 
+
 FIL   	fileTXT;
 FIL* 		fp;
 BYTE 			buffer[]="hello world!";//	写入数据
@@ -33,15 +32,10 @@ void PutTXTdata2TFCardTest(void);
 
 void PutData2TXT(u8 *databuffer,uint16_t length);
 
-#if (WORK_MODE==0)
-uint8_t WorkInFlag=0;
-uint8_t ReadyFlag=1;
-u32 bound=4800;
-#else
-uint8_t WorkInFlag=1;
+
+
 uint8_t ReadyFlag=0;
-u32 bound=115200;
-#endif
+
 
 u8 USART1_TX_BUF[USART3_MAX_RECV_LEN]; 					//串口1,发送缓存区
 nmea_msg gpsx; 											//GPS信息
@@ -113,19 +107,19 @@ int main(void)
 	}
 
 	res_sd = f_lseek(fp,fp->fsize);  
-	delay_ms(5);
-	LED0 = 0;
 	
+	LED0 = 0;
 	fifo_alloc(&MeteorFIFOBuffer,2*1024);
 	fifo_alloc(&NuclearFIFOBuffer,2*1024);
-	
 	mem_perused = my_mem_perused(SRAMIN);
+	
+	delay_ms(3000);
 	
 	while(1)
 	{
 		//printf("USART1 is oK \r\n");
 		/*****************核辐射设备通讯---测试*******************/
-		if(WorkInFlag==1&&ReadyFlag==0)   
+		if(ReadyFlag==0)   
 		{
 			//if(1)
 			if(CheckCommunication()==true)
@@ -141,7 +135,7 @@ int main(void)
 			delay_ms(500);
 		}
 		/*****************核辐射设备数据---读取*******************/
-		else if(WorkInFlag==1&&ReadyFlag==1)
+		else if(ReadyFlag==1)
 		{
 			delay_ms(20);
 			TIME_Check++;
@@ -149,37 +143,37 @@ int main(void)
 			{
 				TIME_Check =0;
 				LED0=1;
-				
-				/*读取气象模块数据*/
 
+				/*读取气象模块数据*/
+				if(Meteor_Status)
+				{
+					LED0=1;
+					MeteorBufCounter = RS232_RX_CNT;
+					Meteor_Status = 0;
+					RS232_RX_CNT = 0;
+				}
+				/*等待气象模块读取到数据后，再一起转发出去*/
+				PutData2TXT(RS232_RX_BUF[BufferFinishNumber],MeteorBufCounter);
+				for(i=0;i<MeteorBufCounter;i++)
+				{
+						printf("%c",RS232_RX_BUF[BufferFinishNumber][i]);
+						//RS232_RX_BUF[i] = 0;
+				}
+				
 				/*读取核辐射模块数据*/
 				ReadMeteorVal();
+				/*转发核辐射数据*/
 				delay_ms(20);
-				NuclearGetData(ReceiveBuf[1],&NuclearBufCounter);
-				PutData2TXT(ReceiveBuf[1],NuclearBufCounter);
+				NuclearGetData(ReceiveBuf,&NuclearBufCounter);
+				PutData2TXT(ReceiveBuf,NuclearBufCounter);
 				for(i=0;i<NuclearBufCounter;i++)
-					printf("%c",ReceiveBuf[1][i]);	
+					printf("%c",ReceiveBuf[i]);	
+				//printf("\r\n");
 			}
 			else
 			{
 				LED0=0;
 			}			
-		}
-		/*****************气象设备数据----读取******************/
-		if(Meteor_Status)
-		{			
-			//MeteorBufCounter = RS232_RX_CNT;
-			//fifo_out(&MeteorFIFOBuffer,ReceiveBuf[0],MeteorBufCounter);
-			LED0=1;
-			PutData2TXT(RS232_RX_BUF,RS232_RX_CNT);
-			//sumCounter = sumCounter + MeteorBufCounter;
-			for(i=0;i<RS232_RX_CNT;i++)
-			{
-					printf("%c",RS232_RX_BUF[i]);
-					RS232_RX_BUF[i] = 0;
-			}
-			Meteor_Status = 0;
-			RS232_RX_CNT = 0;
 		}
 	} 
 }

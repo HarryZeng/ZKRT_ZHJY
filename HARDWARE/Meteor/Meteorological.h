@@ -12,7 +12,7 @@ extern fifo 	MeteorFIFOBuffer;
 extern fifo 	NuclearFIFOBuffer;
 extern u16 		MeteorBufCounter;
 extern u16 		NuclearBufCounter;
-extern u8     ReceiveBuf[2][2000];
+extern u8     ReceiveBuf[2000];
 bool CheckCommunication(void);
 bool StartMea(void);
 bool StopMea(void);

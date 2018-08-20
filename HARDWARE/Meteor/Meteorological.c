@@ -24,7 +24,7 @@
 
 fifo 		MeteorFIFOBuffer;
 fifo 		NuclearFIFOBuffer;
-u8      ReceiveBuf[2][2000];
+u8      ReceiveBuf[2000];
 u16 		MeteorBufCounter;
 u16 		NuclearBufCounter;
 
@@ -81,6 +81,7 @@ bool CheckCommunication(void)
 	
 	char CheckReceiveFlag[]="OK Q\n";
 	char ReceiveData[5];
+	
 	
 	LED0 = 0;
 	RS485_Send_Data(SendCmd,2);

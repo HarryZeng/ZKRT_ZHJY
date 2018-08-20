@@ -2,9 +2,10 @@
 #define __RS232_H			 
 #include "sys.h"	 								  
 
-extern u8 RS232_RX_BUF[2000]; 		//接收缓冲,最大1000个字节
+extern u8 RS232_RX_BUF[2][2000]; 		//接收缓冲,最大1000个字节
 extern uint16_t RS232_RX_CNT;   			//接收到的数据长度
 extern u8 Meteor_Status;
+extern u8 BufferFinishNumber;
 //模式控制
 #define RS232_TX_EN		PGout(8)	//485模式控制.0,接收;1,发送.
 //如果想串口中断接收，设置EN_USART2_RX为1，否则设置为0

@@ -37,6 +37,7 @@ void PutData2TXT(u8 *databuffer,uint16_t length);
 uint8_t ReadyFlag=0;
 uint32_t TimeFlag=0;
 uint32_t TimeCounter=1000;
+uint32_t SetVotalgeValue=1;
 uint16_t BatteryAllowance=0;
 u8 ReturnFlag=0;
 
@@ -64,7 +65,7 @@ u8 ComaBackCommand[]={0x5A,0x04,0xFF,0xFF,0x0D,0x0A};
 int main(void)
 {
 	u16 i=0;
-	u16 lenx;
+	u32 lenx;
 	u32 TIME_Check=0;
  	u32 total,free;
 	u8 keypress=0;
@@ -79,7 +80,7 @@ int main(void)
 	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);//设置系统中断优先级分组2
 	delay_init(168);  //初始化延时函数
 	API_Uart6_init(115200);
-	uart_init(115200);		//初始化串口波特率为115200
+	uart_init(921600);		//初始化串口波特率为921600
 	LED_Init();					//初始化LED 
 	//usmart_dev.init(84);		//初始化USMART
  	//KEY_Init();					//按键初始化 
@@ -119,19 +120,16 @@ int main(void)
 	res_sd = f_lseek(fp,fp->fsize);  
 	
 	LED0 = 0;
-	//fifo_alloc(&MeteorFIFOBuffer,2*1024);
-	fifo_alloc(&NuclearFIFOBuffer,2*1024);
+	fifo_alloc(&NuclearFIFOBuffer,8*1024);
 	mem_perused = my_mem_perused(SRAMIN);
 	
 	delay_ms(1000);
 	
 	while(1)
 	{
-		//printf("USART1 is oK \r\n");
 		/*****************核辐射设备通讯---测试*******************/
 		if(ReadyFlag==0)   
 		{
-			//if(1)
 			if(CheckCommunication()==true)
 			{
 				printf("Communication is OK\r\n");
@@ -156,7 +154,10 @@ int main(void)
 				{
 					if(USART_RX_BUF[1]==0x01)  //设置电压
 					{
-
+						SetVotalgeValue = (USART_RX_BUF[3]<<8) + USART_RX_BUF[2];
+						if(SetVotalgeValue>=999) SetVotalgeValue=999;
+						if(SetVotalgeValue<=0)  SetVotalgeValue =0;
+						SetVoltage(SetVotalgeValue);
 					}
 					if(USART_RX_BUF[1]==0x02)  //设置时间
 					{
@@ -193,17 +194,16 @@ int main(void)
 			}
 			/****************核辐射气象****************/
 			if(TimeFlag)
-			{
+			{				
 				TimeFlag =0;
 				LED0=1;
-				//printf("USART1 IS OK\r\n");
 				/*等待气象模块读取到数据后，再一起转发出去*/
 				PutData2TXT(RS232_RX_BUF[BufferFinishNumber],MeteorBufCounter);
 				for(i=0;i<MeteorBufCounter;i++)
 				{
 						printf("%c",RS232_RX_BUF[BufferFinishNumber][i]);
 				}
-				printf("\r\n");
+				//printf("\r\n");
 				/*读取核辐射模块数据*/
 				ReadMeteorVal();
 				/*转发核辐射数据*/
@@ -215,8 +215,8 @@ int main(void)
 					printf("%c",ReceiveBuf[i]);
 				printf("\r\n");
 				/*发送飞机状态*/
-				printf("$WRJSJ,Battery:%d,ReturnFlag:%d",BatteryAllowance,ReturnFlag);
-				
+				printf("$WRJSJ,Battery:%d,ReturnFlag:%d\r\n",BatteryAllowance,ReturnFlag);
+				printf("\r\n");
 			}
 			else
 			{

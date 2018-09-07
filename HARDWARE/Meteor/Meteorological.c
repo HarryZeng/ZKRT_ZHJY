@@ -100,14 +100,20 @@ bool CheckCommunication(void)
 
 /**
   * @brief  Meteor Start to measure
-  * @param  None
+  * @param  2018-8-29  V2
   * @retval None
   */
 bool SetVoltage(u16 VoltageValue)
 {
-		uint8_t Cmd[]="K\n";
-	  
-		RS485_Send_Data(Cmd, 2);
+		uint8_t Cmd[6];
+		
+		Cmd[0] = 'V';
+		Cmd[1] = 0x30+(VoltageValue/100)%10;
+		Cmd[2] = 0x30+(VoltageValue/10)%10;
+		Cmd[3] = 0x30+VoltageValue%10;
+		Cmd[4] = '\n';
+	
+		RS485_Send_Data(Cmd, 5);
 
 }
 

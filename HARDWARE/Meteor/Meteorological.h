@@ -18,4 +18,5 @@ bool StartMea(void);
 bool StopMea(void);
 bool ReadMeteorVal (void);
 void NuclearGetData(u8 *NuclearData,u16 *Length);
+bool SetVoltage(u16 VoltageValue);
 #endif	   

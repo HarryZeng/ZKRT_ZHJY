@@ -174,18 +174,20 @@ bool ReadMeteorVal (void)
 
 u8 NuclearData_Status=0;
 u8 NuclearData_DataLength=0;
+u8 tempstatus = 0;
 void NuclearGetData(u8 *NuclearData,u16 *Length)
 {
 	u8 res=0;	 
 	u8 getCounter=0;
 	while(NuclearData_Status<=0x0A)
 	{
-		fifo_out(&NuclearFIFOBuffer,&res,1);
+		tempstatus = fifo_out(&NuclearFIFOBuffer,&res,1);
 		getCounter++;
 		if(NuclearData_Status==0x0A)
 		{
 			fifo_out(&NuclearFIFOBuffer,&NuclearData[4],NuclearData_DataLength);
 			*Length =  NuclearData_DataLength + 4;
+			NuclearData_Status = 0x00;
 			break;
 		}
 		else if(NuclearData_Status == 0x02)  //第三步，获取数据长度

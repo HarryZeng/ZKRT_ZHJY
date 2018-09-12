@@ -43,6 +43,8 @@ void UART4_IRQHandler(void)
 		USART_ClearITPendingBit(RS485_USART, USART_IT_IDLE);
 		RS485_USART->DR;
 		Rs485Meteor_Status = 1;
+		NuclearBufCounter = RS485_RX_CNT;
+		RS485_RX_CNT = 0;
 		/*记录当前缓存区*/
 		Rs485BufferFinishNumber = Rs485BufferWorkNumber;
 		if(Rs485BufferWorkNumber==Rs485BufferNumber1)

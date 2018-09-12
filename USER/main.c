@@ -80,7 +80,7 @@ int main(void)
 	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);//设置系统中断优先级分组2
 	delay_init(168);  //初始化延时函数
 	API_Uart6_init(115200);
-	uart_init(921600);		//初始化串口波特率为921600
+	uart_init(115200);		//初始化串口波特率为115200
 	LED_Init();					//初始化LED 
 	//usmart_dev.init(84);		//初始化USMART
  	//KEY_Init();					//按键初始化 
@@ -124,6 +124,8 @@ int main(void)
 	mem_perused = my_mem_perused(SRAMIN);
 	
 	delay_ms(1000);
+	
+	//ReadyFlag = 1;
 	
 	while(1)
 	{
@@ -198,7 +200,7 @@ int main(void)
 				TimeFlag =0;
 				LED0=1;
 				/*等待气象模块读取到数据后，再一起转发出去*/
-				PutData2TXT(RS232_RX_BUF[BufferFinishNumber],MeteorBufCounter);
+				//PutData2TXT(RS232_RX_BUF[BufferFinishNumber],MeteorBufCounter);
 				for(i=0;i<MeteorBufCounter;i++)
 				{
 						printf("%c",RS232_RX_BUF[BufferFinishNumber][i]);
@@ -208,12 +210,19 @@ int main(void)
 				ReadMeteorVal();
 				/*转发核辐射数据*/
 				delay_ms(20);
-				NuclearGetData(ReceiveBuf,&NuclearBufCounter);
-				PutData2TXT(ReceiveBuf,NuclearBufCounter);
-				printf("$HFSSJ,");
-				for(i=0;i<NuclearBufCounter;i++)
-					printf("%c",ReceiveBuf[i]);
-				printf("\r\n");
+				//NuclearGetData(ReceiveBuf,&NuclearBufCounter);
+				//PutData2TXT(ReceiveBuf,NuclearBufCounter);
+				if(NuclearBufCounter>0)
+				{
+					//PutData2TXT(RS485_RX_BUF[Rs485BufferFinishNumber],NuclearBufCounter);
+					printf("$HFSSJ,");
+					for(i=0;i<NuclearBufCounter;i++)
+					{
+						printf("%c",RS485_RX_BUF[Rs485BufferFinishNumber][i]);
+					}
+					NuclearBufCounter = 0;
+					printf("\r\n");
+				}
 				/*发送飞机状态*/
 				printf("$WRJSJ,Battery:%d,ReturnFlag:%d\r\n",BatteryAllowance,ReturnFlag);
 				printf("\r\n");
